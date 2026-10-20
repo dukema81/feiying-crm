@@ -1,0 +1,26 @@
+# 运行产物与本地数据
+data/
+*.db
+*.db-wal
+*.db-shm
+reports/screenshots/
+reports/junit_*.xml
+reports/test_report.json
+reports/summary.md
+reports/kb_upload_result.json
+reports/*.db*
+demo/*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
