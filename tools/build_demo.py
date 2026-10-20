@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""飞鹰CRM系统 · 离线单文件 DEMO 生成器
+"""飞泉SCM系统 · 离线单文件 DEMO 生成器
 
 思路：起一个临时后端（独立临时库），把前端需要的全部数据抓成快照内嵌进单个 HTML；
-再用 fetch 拦截器在浏览器内存里实现建单 / 查重 / 转客户 / 阶段推进 / 折扣审批 /
-合同签署 / 收款核销 / 工单 SLA 等写操作，口径与后端一致，因此 DEMO 打开即用、
+再用 fetch 拦截器在浏览器内存里实现请购 / 询价 / 订单推进 / 收货质检 / 库存作业 /
+三单匹配 / 付款 / 集成配置等写操作，口径与后端一致，因此 DEMO 打开即用、
 无需服务与网络。
 """
 import io
@@ -63,8 +63,8 @@ def snapshot():
         if os.path.exists(db_path + suf):
             os.remove(db_path + suf)
     env = dict(os.environ)
-    env["FEIYING_PORT"] = str(PORT)
-    env["FEIYING_DB"] = db_path
+    env["FEIQUAN_PORT"] = str(PORT)
+    env["FEIQUAN_DB"] = db_path
     env.pop("http_proxy", None)
     env.pop("HTTP_PROXY", None)
     proc = subprocess.Popen([sys.executable, os.path.join("backend", "server.py")],
@@ -77,32 +77,36 @@ def snapshot():
                   {"username": "admin", "password": "admin123"})["token"]
 
         snap = {"boot": call("/api/bootstrap", token=tk), "me": call("/api/auth/me", token=tk)}
-        snap["leads"] = call("/api/leads?pageSize=500", token=tk)
-        snap["leadD"] = {x["no"]: call("/api/leads/" + q(x["no"]), token=tk)
-                         for x in snap["leads"]["list"]}
-        snap["customers"] = call("/api/customers?pageSize=500", token=tk)
-        snap["custD"] = {x["code"]: call("/api/customers/" + q(x["code"]), token=tk)
-                         for x in snap["customers"]["list"]}
-        snap["opps"] = call("/api/opportunities?pageSize=500", token=tk)
-        snap["oppD"] = {x["no"]: call("/api/opportunities/" + q(x["no"]), token=tk)
-                        for x in snap["opps"]["list"]}
-        snap["quotes"] = call("/api/quotes?pageSize=500", token=tk)
-        snap["quoteD"] = {x["no"]: call("/api/quotes/" + q(x["no"]), token=tk)
-                          for x in snap["quotes"]["list"]}
-        snap["contracts"] = call("/api/contracts?pageSize=500", token=tk)
-        snap["contractD"] = {x["no"]: call("/api/contracts/" + q(x["no"]), token=tk)
-                             for x in snap["contracts"]["list"]}
-        snap["plans"] = call("/api/payments/plans?pageSize=500", token=tk)
-        snap["payments"] = call("/api/payments?kw=", token=tk)
-        snap["tickets"] = call("/api/tickets?pageSize=500", token=tk)
-        snap["ticketD"] = {x["no"]: call("/api/tickets/" + q(x["no"]), token=tk)
-                           for x in snap["tickets"]["list"]}
-        snap["activities"] = call("/api/activities?kind=" + q("全部"), token=tk)
-        snap["campaigns"] = call("/api/campaigns", token=tk)
+        snap["suppliers"] = call("/api/suppliers", token=tk)
+        snap["supD"] = {x["code"]: call("/api/suppliers/" + q(x["code"]), token=tk)
+                        for x in snap["suppliers"]["list"]}
+        snap["materials"] = call("/api/materials", token=tk)
+        snap["matD"] = {x["code"]: call("/api/materials/" + q(x["code"]), token=tk)
+                        for x in snap["materials"]["list"]}
+        snap["warehouses"] = call("/api/warehouses", token=tk)
+        snap["reqs"] = call("/api/requisitions", token=tk)
+        snap["reqD"] = {x["no"]: call("/api/requisitions/" + q(x["no"]), token=tk)
+                        for x in snap["reqs"]["list"]}
+        snap["rfqs"] = call("/api/rfqs", token=tk)
+        snap["rfqD"] = {x["no"]: call("/api/rfqs/" + q(x["no"]), token=tk)
+                        for x in snap["rfqs"]["list"]}
+        snap["orders"] = call("/api/orders", token=tk)
+        snap["orderD"] = {x["no"]: call("/api/orders/" + q(x["no"]), token=tk)
+                          for x in snap["orders"]["list"]}
+        snap["receipts"] = call("/api/receipts", token=tk)
+        snap["receiptD"] = {x["no"]: call("/api/receipts/" + q(x["no"]), token=tk)
+                            for x in snap["receipts"]["list"]}
+        snap["stock"] = call("/api/stock", token=tk)
+        snap["stockSummary"] = call("/api/stock/summary", token=tk)
+        snap["shortage"] = call("/api/stock/shortage", token=tk)
+        snap["moves"] = call("/api/moves", token=tk)
+        snap["transfers"] = call("/api/transfers", token=tk)
+        snap["stocktakes"] = call("/api/stocktakes", token=tk)
+        snap["invoices"] = call("/api/invoices", token=tk)
+        snap["payables"] = call("/api/payables", token=tk)
         snap["reports"] = call("/api/reports", token=tk)
         snap["settings"] = call("/api/settings", token=tk)
         snap["logs"] = call("/api/logs", token=tk)
-        snap["products"] = call("/api/products", token=tk)
         snap["integ"] = {
             "overview": call("/api/integration/overview", token=tk),
             "keys": call("/api/integration/keys", token=tk),
@@ -111,13 +115,12 @@ def snapshot():
             "mappings": call("/api/integration/mappings", token=tk),
             "sync": call("/api/sync/changes?since=0&limit=15", token=tk),
         }
-        print("快照完成：线索 %d / 客户 %d / 商机 %d / 报价 %d / 合同 %d / 回款计划 %d / "
-              "工单 %d / 跟进 %d / 活动 %d"
-              % (len(snap["leads"]["list"]), len(snap["customers"]["list"]),
-                 len(snap["opps"]["list"]), len(snap["quotes"]["list"]),
-                 len(snap["contracts"]["list"]), len(snap["plans"]["list"]),
-                 len(snap["tickets"]["list"]), len(snap["activities"]["list"]),
-                 len(snap["campaigns"]["list"])))
+        print("快照完成：供应商 %d / 物料 %d / 请购 %d / 询价 %d / 订单 %d / 收货 %d / "
+              "库存 %d 行 / 发票 %d"
+              % (len(snap["suppliers"]["list"]), len(snap["materials"]["list"]),
+                 len(snap["reqs"]["list"]), len(snap["rfqs"]["list"]),
+                 len(snap["orders"]["list"]), len(snap["receipts"]["list"]),
+                 len(snap["stock"]["list"]), len(snap["invoices"]["list"])))
         return snap
     finally:
         proc.terminate()
@@ -134,8 +137,8 @@ def main():
     css = read("frontend/style.css")
     shell = read("frontend/index.html")
     mock = read("tools/demo_mock.js")
-    fe = [read("frontend/app.js"), read("frontend/sales.js"), read("frontend/deal.js"),
-          read("frontend/svc.js"), read("frontend/intg.js")]
+    fe = [read("frontend/app.js"), read("frontend/mdm.js"), read("frontend/buy.js"),
+          read("frontend/stock.js"), read("frontend/fin.js"), read("frontend/intg.js")]
 
     body = shell.split("<body>", 1)[1].rsplit("</body>", 1)[0]
     body = body.split('<div class="mask"')[0]
@@ -146,7 +149,7 @@ def main():
         "<head>",
         '<meta charset="UTF-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        "<title>飞鹰CRM系统 · 离线演示版</title>",
+        "<title>飞泉SCM系统 · 离线演示版</title>",
         "<style>",
         css,
         "html,body{height:auto}",
@@ -169,7 +172,7 @@ def main():
 
     out_dir = os.path.join(ROOT, "demo")
     os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, "飞鹰CRM系统Demo.html")
+    out = os.path.join(out_dir, "飞泉SCM系统Demo.html")
     io.open(out, "w", encoding="utf-8").write("\n".join(parts))
     print("已生成：%s（%.1f KB）" % (out, os.path.getsize(out) / 1024.0))
 
