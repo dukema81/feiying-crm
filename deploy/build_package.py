@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""打部署包：feiying_app.tar.gz（backend/frontend/deploy/docs/demo/tests/scripts/tools + README）。"""
+"""打部署包：feiquan_app.tar.gz（backend/frontend/deploy/docs/demo/tests/scripts/tools + README）。"""
 import io
 import os
 import tarfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = r"C:/Users/maxl/WorkBuddy/Claw/Temp/feiying_app.tar.gz"
+OUT = r"C:/Users/maxl/WorkBuddy/Claw/Temp/feiquan_app.tar.gz"
 INCLUDE = ["backend", "frontend", "deploy", "docs", "demo", "tests", "scripts", "tools", "README.md"]
 SKIP_DIRS = {"data", "__pycache__", ".pytest_cache", "screenshots", "node_modules", ".git"}
 SKIP_EXT = {".pyc", ".db", ".db-wal", ".db-shm", ".log"}
