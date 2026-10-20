@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>飞鹰 CRM · Feiying CRM</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="titlebar">
+    <div class="brand">
+      <div class="logo">鹰</div>
+      <div>
+        <div class="co">飞鹰智能科技（苏州）有限公司</div>
+        <div class="sys">飞鹰 CRM · 客户与销售全流程管理系统</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="ver" id="verNo">feiying-crm-1.0.0</div>
+    <span class="opuser link-out" id="btnLogout" title="退出登录" style="cursor:pointer">退出</span>
+    <div class="winbtns"><span>—</span><span>□</span><span class="close">×</span></div>
+  </header>
+
+  <nav class="menubar" id="menubar"></nav>
+
+  <div class="body">
+    <aside class="tree">
+      <div class="tree-title"><span style="color:var(--accent2)">■</span> 功能导航</div>
+      <div id="tree"></div>
+    </aside>
+
+    <section class="workspace">
+      <div class="tabstrip" id="tabstrip"></div>
+      <div class="page" id="view"></div>
+    </section>
+
+    <aside class="side" id="side"></aside>
+  </div>
+
+  <footer class="statusbar">
+    <span id="statusMsg">就绪</span>
+    <span class="spacer"></span>
+    <span>账套：<b>FY-CRM-2026</b></span>
+    <span id="pipeLabel">在谈商机：—</span>
+    <span id="wonLabel">本月签约：—</span>
+    <span>期间：<b id="periodLabel">2026-10</b></span>
+    <span id="opFoot">操作员：—</span>
+  </footer>
+</div>
+
+<div class="mask" id="mask"><div class="dialog" id="dialog"></div></div>
+
+<script src="app.js"></script>
+<script src="sales.js"></script>
+<script src="deal.js"></script>
+<script src="svc.js"></script>
+<script src="intg.js"></script>
+</body>
+</html>
