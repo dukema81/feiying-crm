@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>飞鹰 CRM · 登录</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-left">
+      <div class="lg">飞鹰 CRM</div>
+      <div class="sub">线索 · 客户 · 商机 · 报价 · 合同 · 回款 · 服务</div>
+      <ul>
+        <li>线索查重与公海回收，客户档案一客一档</li>
+        <li>商机阶段闸口 + 加权漏斗，销售预测可解释</li>
+        <li>报价折扣审批线，合同分期回款与账龄</li>
+        <li>工单 SLA 计时，超时自动预警</li>
+        <li>开放接口：API Key / Webhook / 增量同步</li>
+      </ul>
+      <div class="spacer"></div>
+      <div class="sub" style="font-size:11.5px">feiying-crm v1.0.0 · 演示数据为确定性生成</div>
+    </div>
+    <div class="login-right">
+      <h2>账号登录</h2>
+      <div class="hint">请输入企业账号与密码</div>
+      <div class="field">
+        <label>账号</label>
+        <input id="u" type="text" placeholder="如 admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="p" type="password" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+      <button class="btn primary" id="btn">登 录</button>
+      <div class="login-err" id="err"></div>
+      <div class="login-demo">
+        演示账号：admin / admin123（管理员）<br>
+        zhangwei 销售总监 · liuyang / wangfang 销售 · sunqi 线索 · chenlu 客服 · zhaomin 财务（密码 fe@2026）
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var u = document.getElementById("u");
+  var p = document.getElementById("p");
+  var btn = document.getElementById("btn");
+  var err = document.getElementById("err");
+  if (localStorage.getItem("fy_token")) location.href = "./index.html";
+
+  function login() {
+    err.textContent = "";
+    var username = (u.value || "").trim();
+    var password = p.value || "";
+    if (!username || !password) { err.textContent = "请输入账号和密码"; return; }
+    btn.disabled = true;
+    btn.textContent = "登录中…";
+    fetch("api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: username, password: password })
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (x) {
+      if (!x.ok || x.j.error) {
+        err.textContent = (x.j && x.j.error) || "登录失败";
+        return;
+      }
+      var d = x.j.data;
+      localStorage.setItem("fy_token", d.token);
+      localStorage.setItem("fy_user", d.username);
+      localStorage.setItem("fy_name", d.displayName);
+      localStorage.setItem("fy_role", d.role);
+      localStorage.setItem("fy_role_label", d.roleLabel);
+      // 同时落一份 Cookie：部分反向代理会改写 Authorization 头，Cookie 作为兜底票据
+      document.cookie = "fy_token=" + d.token + "; path=/; max-age=86400; samesite=lax";
+      location.href = "./index.html";
+    }).catch(function () {
+      err.textContent = "网络异常，请稍后重试";
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = "登 录";
+    });
+  }
+
+  btn.addEventListener("click", login);
+  p.addEventListener("keydown", function (e) { if (e.key === "Enter") login(); });
+  u.addEventListener("keydown", function (e) { if (e.key === "Enter") p.focus(); });
+  u.focus();
+})();
+</script>
+</body>
+</html>
