@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""飞鹰 CRM · 数据层：SQLite 零依赖，连接管理 / 建表 / 种子装载。
+"""飞泉 SCM · 数据层：SQLite 零依赖，建表 / 连接 / 种子装载。
 
-并发纪律：
-- journal_mode 是持久化设置，只在 init_db 设一次；每连接再设会写锁，
-  Windows 下多连接并发偶发 "attempt to write a readonly database"；
-- 服务层对所有 /api/ 请求整段串行化（RLock），这里只需 busy_timeout。
+并发纪律（与飞鹰 CRM 一致）
+- journal_mode 是持久化设置，只在 init_db 设一次；
+- 每连接只设 busy_timeout；
+- 服务层对所有 /api/ 请求整段串行化（RLock），这里不再做额外锁。
 """
 import hashlib
 import os
 import sqlite3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get("FEIYING_DB", os.path.join(BASE_DIR, "data", "feiying.db"))
+DB_PATH = os.environ.get("FEIQUAN_DB", os.path.join(BASE_DIR, "data", "feiquan.db"))
 
 SCHEMA = """
 -- ---------------------------------------------------------------- 账号与组织
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
   password     TEXT NOT NULL,
   display_name TEXT NOT NULL,
   role         TEXT NOT NULL,
-  team_code    TEXT DEFAULT '',
+  dept_code    TEXT DEFAULT '',
   phone        TEXT DEFAULT '',
   email        TEXT DEFAULT '',
   status       TEXT DEFAULT '在职',
@@ -29,380 +29,438 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS sessions (
   token      TEXT PRIMARY KEY,
   username   TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now','localtime'))
+  created_at TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS teams (
   code    TEXT PRIMARY KEY,
   name    TEXT NOT NULL,
-  region  TEXT DEFAULT '',
+  dept    TEXT DEFAULT '',
   leader  TEXT DEFAULT '',
   remark  TEXT DEFAULT ''
 );
-
--- ---------------------------------------------------------------- 客户主数据
-CREATE TABLE IF NOT EXISTS customers (
-  code          TEXT PRIMARY KEY,
-  name          TEXT NOT NULL,
-  short_name    TEXT DEFAULT '',
-  industry      TEXT DEFAULT '制造业',
-  scale         TEXT DEFAULT '中型',
-  region        TEXT DEFAULT '华东',
-  level         TEXT DEFAULT 'B',
-  source        TEXT DEFAULT '老客推荐',
-  owner         TEXT DEFAULT '',
-  phone         TEXT DEFAULT '',
-  website       TEXT DEFAULT '',
-  address       TEXT DEFAULT '',
-  credit_limit  REAL NOT NULL DEFAULT 0,
-  status        TEXT DEFAULT '活跃',
-  score         REAL NOT NULL DEFAULT 0,
-  campaign_code TEXT DEFAULT '',
-  created_at    TEXT DEFAULT '',
-  updated_at    TEXT DEFAULT '',
-  last_follow_at TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS contacts (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  customer_code TEXT NOT NULL,
-  name          TEXT NOT NULL,
-  title         TEXT DEFAULT '',
-  phone         TEXT DEFAULT '',
-  email         TEXT DEFAULT '',
-  wechat        TEXT DEFAULT '',
-  is_primary    INTEGER NOT NULL DEFAULT 0,
-  remark        TEXT DEFAULT '',
-  created_at    TEXT DEFAULT ''
-);
-
--- ---------------------------------------------------------------- 线索与商机
-CREATE TABLE IF NOT EXISTS leads (
-  no            TEXT PRIMARY KEY,
-  name          TEXT NOT NULL,
-  contact       TEXT DEFAULT '',
-  phone         TEXT DEFAULT '',
-  email         TEXT DEFAULT '',
-  source        TEXT DEFAULT '官网表单',
-  industry      TEXT DEFAULT '',
-  region        TEXT DEFAULT '',
-  budget        REAL NOT NULL DEFAULT 0,
-  demand        TEXT DEFAULT '',
-  grade         TEXT DEFAULT 'B',
-  status        TEXT DEFAULT '待分配',
-  owner         TEXT DEFAULT '',
-  creator       TEXT DEFAULT '',
-  campaign_code TEXT DEFAULT '',
-  converted_customer TEXT DEFAULT '',
-  invalid_reason TEXT DEFAULT '',
-  created_at    TEXT DEFAULT '',
-  assigned_at   TEXT DEFAULT '',
-  last_follow_at TEXT DEFAULT '',
-  next_follow_at TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS pool_logs (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  lead_no    TEXT NOT NULL,
-  action     TEXT NOT NULL,
-  from_owner TEXT DEFAULT '',
-  to_owner   TEXT DEFAULT '',
-  reason     TEXT DEFAULT '',
-  operator   TEXT DEFAULT '',
-  created_at TEXT DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS opportunities (
-  no                TEXT PRIMARY KEY,
-  name              TEXT NOT NULL,
-  customer_code     TEXT NOT NULL,
-  customer_name     TEXT DEFAULT '',
-  amount            REAL NOT NULL DEFAULT 0,
-  stage             TEXT NOT NULL DEFAULT '初步接触',
-  probability       REAL NOT NULL DEFAULT 0.1,
-  expect_close_date TEXT DEFAULT '',
-  owner             TEXT DEFAULT '',
-  source            TEXT DEFAULT '',
-  campaign_code     TEXT DEFAULT '',
-  competitor        TEXT DEFAULT '',
-  decision_maker    TEXT DEFAULT '',
-  status            TEXT DEFAULT '进行中',
-  win_reason        TEXT DEFAULT '',
-  lose_reason       TEXT DEFAULT '',
-  next_action       TEXT DEFAULT '',
-  created_at        TEXT DEFAULT '',
-  updated_at        TEXT DEFAULT '',
-  closed_at         TEXT DEFAULT '',
-  last_activity_at  TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS stage_logs (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  opp_no     TEXT NOT NULL,
-  from_stage TEXT DEFAULT '',
-  to_stage   TEXT DEFAULT '',
-  amount     REAL NOT NULL DEFAULT 0,
-  operator   TEXT DEFAULT '',
-  remark     TEXT DEFAULT '',
-  created_at TEXT DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS activities (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  obj_type     TEXT NOT NULL DEFAULT 'customer',
-  obj_no       TEXT NOT NULL DEFAULT '',
-  obj_name     TEXT DEFAULT '',
-  kind         TEXT NOT NULL DEFAULT '电话',
-  subject      TEXT NOT NULL DEFAULT '',
-  content      TEXT DEFAULT '',
-  happen_at    TEXT DEFAULT '',
-  duration_min INTEGER NOT NULL DEFAULT 30,
-  owner        TEXT DEFAULT '',
-  result       TEXT DEFAULT '',
-  next_plan    TEXT DEFAULT '',
-  next_at      TEXT DEFAULT '',
-  status       TEXT NOT NULL DEFAULT '完成',
-  created_at   TEXT DEFAULT ''
-);
-
--- ---------------------------------------------------------------- 报价 / 合同 / 回款
-CREATE TABLE IF NOT EXISTS products (
-  code     TEXT PRIMARY KEY,
-  name     TEXT NOT NULL,
-  category TEXT DEFAULT '软件',
-  unit     TEXT DEFAULT '套',
-  price    REAL NOT NULL DEFAULT 0,
-  cost     REAL NOT NULL DEFAULT 0,
-  status   TEXT DEFAULT '在售',
-  remark   TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS quotes (
-  no            TEXT PRIMARY KEY,
-  opp_no        TEXT DEFAULT '',
-  customer_code TEXT NOT NULL,
-  customer_name TEXT DEFAULT '',
-  title         TEXT DEFAULT '',
-  amount        REAL NOT NULL DEFAULT 0,
-  list_amount   REAL NOT NULL DEFAULT 0,
-  discount_rate REAL NOT NULL DEFAULT 0,
-  status        TEXT NOT NULL DEFAULT '草稿',
-  valid_until   TEXT DEFAULT '',
-  owner         TEXT DEFAULT '',
-  approver      TEXT DEFAULT '',
-  approved_at   TEXT DEFAULT '',
-  reject_reason TEXT DEFAULT '',
-  remark        TEXT DEFAULT '',
-  created_at    TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS quote_lines (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  quote_no     TEXT NOT NULL,
-  seq          INTEGER NOT NULL DEFAULT 1,
-  product_code TEXT NOT NULL,
-  product_name TEXT NOT NULL,
-  qty          REAL NOT NULL DEFAULT 1,
-  list_price   REAL NOT NULL DEFAULT 0,
-  price        REAL NOT NULL DEFAULT 0,
-  amount       REAL NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS contracts (
-  no             TEXT PRIMARY KEY,
-  customer_code  TEXT NOT NULL,
-  customer_name  TEXT DEFAULT '',
-  quote_no       TEXT DEFAULT '',
-  opp_no         TEXT DEFAULT '',
-  title          TEXT DEFAULT '',
-  amount         REAL NOT NULL DEFAULT 0,
-  sign_date      TEXT DEFAULT '',
-  start_date     TEXT DEFAULT '',
-  end_date       TEXT DEFAULT '',
-  payment_terms  TEXT DEFAULT '3-4-3',
-  status         TEXT NOT NULL DEFAULT '草稿',
-  owner          TEXT DEFAULT '',
-  signed_at      TEXT DEFAULT '',
-  terminated_at  TEXT DEFAULT '',
-  remark         TEXT DEFAULT '',
-  created_at     TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS contract_plans (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  contract_no  TEXT NOT NULL,
-  seq          INTEGER NOT NULL DEFAULT 1,
-  due_date     TEXT NOT NULL,
-  amount       REAL NOT NULL DEFAULT 0,
-  paid_amount  REAL NOT NULL DEFAULT 0,
-  status       TEXT NOT NULL DEFAULT '未收',
-  remark       TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS payments (
-  no            TEXT PRIMARY KEY,
-  contract_no   TEXT DEFAULT '',
-  plan_id       INTEGER NOT NULL DEFAULT 0,
-  customer_code TEXT NOT NULL,
-  customer_name TEXT DEFAULT '',
-  amount        REAL NOT NULL DEFAULT 0,
-  pay_date      TEXT DEFAULT '',
-  method        TEXT DEFAULT '银行转账',
-  operator      TEXT DEFAULT '',
-  remark        TEXT DEFAULT '',
-  created_at    TEXT DEFAULT ''
-);
-
--- ---------------------------------------------------------------- 服务工单
-CREATE TABLE IF NOT EXISTS tickets (
-  no            TEXT PRIMARY KEY,
-  customer_code TEXT NOT NULL,
-  customer_name TEXT DEFAULT '',
-  contract_no   TEXT DEFAULT '',
-  title         TEXT NOT NULL,
-  category      TEXT DEFAULT '咨询',
-  priority      TEXT NOT NULL DEFAULT 'P2',
-  status        TEXT NOT NULL DEFAULT '待受理',
-  owner         TEXT DEFAULT '',
-  creator       TEXT DEFAULT '',
-  description   TEXT DEFAULT '',
-  created_at    TEXT DEFAULT '',
-  accepted_at   TEXT DEFAULT '',
-  resolved_at   TEXT DEFAULT '',
-  closed_at     TEXT DEFAULT '',
-  response_due  TEXT DEFAULT '',
-  resolve_due   TEXT DEFAULT '',
-  sla_state     TEXT DEFAULT '正常',
-  satisfaction  INTEGER NOT NULL DEFAULT 0,
-  resolution    TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS ticket_logs (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  ticket_no  TEXT NOT NULL,
-  action     TEXT NOT NULL,
-  content    TEXT DEFAULT '',
-  operator   TEXT DEFAULT '',
-  created_at TEXT DEFAULT ''
-);
-
--- ---------------------------------------------------------------- 市场活动
-CREATE TABLE IF NOT EXISTS campaigns (
-  code         TEXT PRIMARY KEY,
-  name         TEXT NOT NULL,
-  kind         TEXT DEFAULT '线上投放',
-  channel      TEXT DEFAULT '微信公众号',
-  start_date   TEXT DEFAULT '',
-  end_date     TEXT DEFAULT '',
-  budget       REAL NOT NULL DEFAULT 0,
-  cost         REAL NOT NULL DEFAULT 0,
-  target_leads INTEGER NOT NULL DEFAULT 0,
-  owner        TEXT DEFAULT '',
-  status       TEXT DEFAULT '进行中',
-  remark       TEXT DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS campaign_members (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  campaign_code TEXT NOT NULL,
-  lead_no       TEXT DEFAULT '',
-  customer_code TEXT DEFAULT '',
-  cost          REAL NOT NULL DEFAULT 0,
-  created_at    TEXT DEFAULT ''
-);
-
--- ---------------------------------------------------------------- 目标与规则
-CREATE TABLE IF NOT EXISTS targets (
-  id     INTEGER PRIMARY KEY AUTOINCREMENT,
-  owner  TEXT NOT NULL,
-  period TEXT NOT NULL,
-  amount REAL NOT NULL DEFAULT 0,
-  remark TEXT DEFAULT '',
-  UNIQUE(owner, period)
-);
 CREATE TABLE IF NOT EXISTS rules (
-  code     TEXT PRIMARY KEY,
-  name     TEXT NOT NULL,
-  value    REAL NOT NULL DEFAULT 0,
-  unit     TEXT DEFAULT '',
-  enabled  INTEGER NOT NULL DEFAULT 1,
-  category TEXT DEFAULT '流程',
-  remark   TEXT DEFAULT ''
+  code    TEXT PRIMARY KEY,
+  name    TEXT NOT NULL,
+  category TEXT DEFAULT '采购',
+  value   REAL DEFAULT 0,
+  unit    TEXT DEFAULT '',
+  enabled INTEGER DEFAULT 1,
+  remark  TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS op_logs (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   username   TEXT DEFAULT '',
   action     TEXT DEFAULT '',
   detail     TEXT DEFAULT '',
-  created_at TEXT DEFAULT (datetime('now','localtime'))
+  created_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS budgets (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  period  TEXT NOT NULL,
+  dept    TEXT NOT NULL,
+  amount  REAL DEFAULT 0,
+  used    REAL DEFAULT 0,
+  remark  TEXT DEFAULT ''
 );
 
--- ---------------------------------------------------------------- 集成（对外对接）
+-- ---------------------------------------------------------------- 供应商
+CREATE TABLE IF NOT EXISTS suppliers (
+  code           TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  short_name     TEXT DEFAULT '',
+  category       TEXT DEFAULT '',
+  level          TEXT DEFAULT 'B',
+  status         TEXT DEFAULT '待准入',
+  score          REAL DEFAULT 0,
+  health         TEXT DEFAULT '正常',
+  tax_no         TEXT DEFAULT '',
+  contact        TEXT DEFAULT '',
+  phone          TEXT DEFAULT '',
+  email          TEXT DEFAULT '',
+  address        TEXT DEFAULT '',
+  region         TEXT DEFAULT '',
+  payment_terms  INTEGER DEFAULT 30,
+  lead_days      INTEGER DEFAULT 15,
+  capacity       TEXT DEFAULT '',
+  currency       TEXT DEFAULT 'CNY',
+  remark         TEXT DEFAULT '',
+  created_at     TEXT DEFAULT '',
+  updated_at     TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS supplier_quals (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  supplier_code TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  no            TEXT DEFAULT '',
+  issued_at     TEXT DEFAULT '',
+  expire_at     TEXT DEFAULT '',
+  remark        TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS supplier_scores (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  supplier_code TEXT NOT NULL,
+  period        TEXT NOT NULL,
+  delivery_rate REAL DEFAULT 0,
+  quality_rate  REAL DEFAULT 0,
+  price_index   REAL DEFAULT 1,
+  response_rate REAL DEFAULT 0,
+  score         REAL DEFAULT 0,
+  level         TEXT DEFAULT '',
+  remark        TEXT DEFAULT '',
+  created_at    TEXT DEFAULT ''
+);
+
+-- ---------------------------------------------------------------- 物料
+CREATE TABLE IF NOT EXISTS materials (
+  code           TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  spec           TEXT DEFAULT '',
+  unit           TEXT DEFAULT '个',
+  category       TEXT DEFAULT '',
+  abc            TEXT DEFAULT 'C',
+  standard_price REAL DEFAULT 0,
+  last_price     REAL DEFAULT 0,
+  lead_days      INTEGER DEFAULT 10,
+  safety_stock   REAL DEFAULT 0,
+  max_stock      REAL DEFAULT 0,
+  min_order_qty  REAL DEFAULT 0,
+  avg_daily_usage REAL DEFAULT 0,
+  main_supplier  TEXT DEFAULT '',
+  status         TEXT DEFAULT '启用',
+  remark         TEXT DEFAULT '',
+  created_at     TEXT DEFAULT '',
+  updated_at     TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS material_prices (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  material_code TEXT NOT NULL,
+  supplier_code TEXT DEFAULT '',
+  price         REAL DEFAULT 0,
+  effective_at  TEXT DEFAULT '',
+  source        TEXT DEFAULT '',
+  remark        TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS warehouses (
+  code     TEXT PRIMARY KEY,
+  name     TEXT NOT NULL,
+  location TEXT DEFAULT '',
+  keeper   TEXT DEFAULT '',
+  status   TEXT DEFAULT '启用',
+  remark   TEXT DEFAULT ''
+);
+
+-- ---------------------------------------------------------------- 请购
+CREATE TABLE IF NOT EXISTS requisitions (
+  no            TEXT PRIMARY KEY,
+  dept          TEXT DEFAULT '',
+  applicant     TEXT DEFAULT '',
+  purpose       TEXT DEFAULT '',
+  need_date     TEXT DEFAULT '',
+  amount        REAL DEFAULT 0,
+  status        TEXT DEFAULT '草稿',
+  approver      TEXT DEFAULT '',
+  approved_at   TEXT DEFAULT '',
+  reject_reason TEXT DEFAULT '',
+  converted_no  TEXT DEFAULT '',
+  remark        TEXT DEFAULT '',
+  created_at    TEXT DEFAULT '',
+  updated_at    TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS req_items (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  req_no        TEXT NOT NULL,
+  material_code TEXT DEFAULT '',
+  material_name TEXT DEFAULT '',
+  spec          TEXT DEFAULT '',
+  unit          TEXT DEFAULT '个',
+  qty           REAL DEFAULT 0,
+  est_price     REAL DEFAULT 0,
+  amount        REAL DEFAULT 0,
+  remark        TEXT DEFAULT ''
+);
+
+-- ---------------------------------------------------------------- 询价比价
+CREATE TABLE IF NOT EXISTS rfqs (
+  no               TEXT PRIMARY KEY,
+  req_no           TEXT DEFAULT '',
+  title            TEXT DEFAULT '',
+  status           TEXT DEFAULT '询价中',
+  deadline         TEXT DEFAULT '',
+  owner            TEXT DEFAULT '',
+  awarded_supplier TEXT DEFAULT '',
+  awarded_amount   REAL DEFAULT 0,
+  remark           TEXT DEFAULT '',
+  created_at       TEXT DEFAULT '',
+  updated_at       TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS rfq_items (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  rfq_no        TEXT NOT NULL,
+  material_code TEXT DEFAULT '',
+  material_name TEXT DEFAULT '',
+  qty           REAL DEFAULT 0,
+  unit          TEXT DEFAULT '个'
+);
+CREATE TABLE IF NOT EXISTS rfq_quotes (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  rfq_no        TEXT NOT NULL,
+  supplier_code TEXT DEFAULT '',
+  supplier_name TEXT DEFAULT '',
+  amount        REAL DEFAULT 0,
+  lead_days     INTEGER DEFAULT 0,
+  valid_days    INTEGER DEFAULT 30,
+  awarded       INTEGER DEFAULT 0,
+  remark        TEXT DEFAULT '',
+  created_at    TEXT DEFAULT ''
+);
+
+-- ---------------------------------------------------------------- 采购订单
+CREATE TABLE IF NOT EXISTS purchase_orders (
+  no              TEXT PRIMARY KEY,
+  supplier_code   TEXT DEFAULT '',
+  supplier_name   TEXT DEFAULT '',
+  req_no          TEXT DEFAULT '',
+  rfq_no          TEXT DEFAULT '',
+  title           TEXT DEFAULT '',
+  amount          REAL DEFAULT 0,
+  currency        TEXT DEFAULT 'CNY',
+  status          TEXT DEFAULT '草稿',
+  promise_date    TEXT DEFAULT '',
+  owner           TEXT DEFAULT '',
+  approver        TEXT DEFAULT '',
+  approved_at     TEXT DEFAULT '',
+  ordered_at      TEXT DEFAULT '',
+  ordered_qty     REAL DEFAULT 0,
+  received_qty    REAL DEFAULT 0,
+  received_amount REAL DEFAULT 0,
+  invoiced_amount REAL DEFAULT 0,
+  match_result    TEXT DEFAULT '',
+  closed_at       TEXT DEFAULT '',
+  cancel_reason   TEXT DEFAULT '',
+  remark          TEXT DEFAULT '',
+  created_at      TEXT DEFAULT '',
+  updated_at      TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS po_items (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  po_no         TEXT NOT NULL,
+  material_code TEXT DEFAULT '',
+  material_name TEXT DEFAULT '',
+  spec          TEXT DEFAULT '',
+  unit          TEXT DEFAULT '个',
+  qty           REAL DEFAULT 0,
+  price         REAL DEFAULT 0,
+  amount        REAL DEFAULT 0,
+  received_qty  REAL DEFAULT 0,
+  promise_date  TEXT DEFAULT '',
+  remark        TEXT DEFAULT ''
+);
+
+-- ---------------------------------------------------------------- 收货质检
+CREATE TABLE IF NOT EXISTS receipts (
+  no            TEXT PRIMARY KEY,
+  po_no         TEXT DEFAULT '',
+  supplier_code TEXT DEFAULT '',
+  supplier_name TEXT DEFAULT '',
+  warehouse     TEXT DEFAULT '',
+  status        TEXT DEFAULT '待质检',
+  inspected_by  TEXT DEFAULT '',
+  inspect_result TEXT DEFAULT '',
+  received_at   TEXT DEFAULT '',
+  posted_at     TEXT DEFAULT '',
+  remark        TEXT DEFAULT '',
+  created_at    TEXT DEFAULT '',
+  updated_at    TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS receipt_items (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  receipt_no    TEXT NOT NULL,
+  material_code TEXT DEFAULT '',
+  material_name TEXT DEFAULT '',
+  unit          TEXT DEFAULT '个',
+  qty           REAL DEFAULT 0,
+  ok_qty        REAL DEFAULT 0,
+  ng_qty        REAL DEFAULT 0,
+  price         REAL DEFAULT 0,
+  amount        REAL DEFAULT 0,
+  batch         TEXT DEFAULT '',
+  expire_at     TEXT DEFAULT '',
+  remark        TEXT DEFAULT ''
+);
+
+-- ---------------------------------------------------------------- 发票与结算
+CREATE TABLE IF NOT EXISTS invoices (
+  no            TEXT PRIMARY KEY,
+  po_no         TEXT DEFAULT '',
+  supplier_code TEXT DEFAULT '',
+  supplier_name TEXT DEFAULT '',
+  invoice_no    TEXT DEFAULT '',
+  amount        REAL DEFAULT 0,
+  tax_rate      REAL DEFAULT 0.13,
+  invoice_date  TEXT DEFAULT '',
+  due_date      TEXT DEFAULT '',
+  status        TEXT DEFAULT '待匹配',
+  match_result  TEXT DEFAULT '',
+  diff_amount   REAL DEFAULT 0,
+  diff_rate     REAL DEFAULT 0,
+  paid_amount   REAL DEFAULT 0,
+  paid_at       TEXT DEFAULT '',
+  remark        TEXT DEFAULT '',
+  created_at    TEXT DEFAULT '',
+  updated_at    TEXT DEFAULT ''
+);
+
+-- ---------------------------------------------------------------- 库存
+CREATE TABLE IF NOT EXISTS stock (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  material_code TEXT NOT NULL,
+  material_name TEXT DEFAULT '',
+  spec          TEXT DEFAULT '',
+  unit          TEXT DEFAULT '个',
+  warehouse     TEXT NOT NULL,
+  batch         TEXT DEFAULT '',
+  qty           REAL DEFAULT 0,
+  locked        REAL DEFAULT 0,
+  unit_cost     REAL DEFAULT 0,
+  in_date       TEXT DEFAULT '',
+  expire_at     TEXT DEFAULT '',
+  updated_at    TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS stock_moves (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  no            TEXT DEFAULT '',
+  type          TEXT DEFAULT '',
+  material_code TEXT DEFAULT '',
+  material_name TEXT DEFAULT '',
+  warehouse     TEXT DEFAULT '',
+  batch         TEXT DEFAULT '',
+  qty           REAL DEFAULT 0,
+  cost          REAL DEFAULT 0,
+  ref_no        TEXT DEFAULT '',
+  reason        TEXT DEFAULT '',
+  operator      TEXT DEFAULT '',
+  created_at    TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS transfers (
+  no         TEXT PRIMARY KEY,
+  from_wh    TEXT DEFAULT '',
+  to_wh      TEXT DEFAULT '',
+  status     TEXT DEFAULT '草稿',
+  applicant  TEXT DEFAULT '',
+  approver   TEXT DEFAULT '',
+  remark     TEXT DEFAULT '',
+  created_at TEXT DEFAULT '',
+  updated_at TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS transfer_items (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  transfer_no   TEXT NOT NULL,
+  material_code TEXT DEFAULT '',
+  material_name TEXT DEFAULT '',
+  unit          TEXT DEFAULT '个',
+  batch         TEXT DEFAULT '',
+  qty           REAL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS stocktakes (
+  no          TEXT PRIMARY KEY,
+  warehouse   TEXT DEFAULT '',
+  status      TEXT DEFAULT '草稿',
+  applicant   TEXT DEFAULT '',
+  approver    TEXT DEFAULT '',
+  diff_amount REAL DEFAULT 0,
+  remark      TEXT DEFAULT '',
+  created_at  TEXT DEFAULT '',
+  updated_at  TEXT DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS stocktake_items (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  stocktake_no  TEXT NOT NULL,
+  material_code TEXT DEFAULT '',
+  material_name TEXT DEFAULT '',
+  unit          TEXT DEFAULT '个',
+  batch         TEXT DEFAULT '',
+  book_qty      REAL DEFAULT 0,
+  real_qty      REAL DEFAULT 0,
+  diff_qty      REAL DEFAULT 0,
+  cost          REAL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------- 集成
+CREATE TABLE IF NOT EXISTS change_log (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  obj_type   TEXT DEFAULT '',
+  obj_no     TEXT DEFAULT '',
+  op         TEXT DEFAULT 'upsert',
+  actor      TEXT DEFAULT '',
+  payload    TEXT DEFAULT '',
+  changed_at TEXT DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS api_keys (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   name         TEXT NOT NULL,
-  key_prefix   TEXT NOT NULL,
+  key_prefix   TEXT DEFAULT '',
   key_hash     TEXT NOT NULL,
-  scope        TEXT NOT NULL DEFAULT 'read',
+  scope        TEXT DEFAULT 'read',
   owner        TEXT DEFAULT '',
-  status       TEXT NOT NULL DEFAULT '启用',
+  status       TEXT DEFAULT '启用',
   expires_at   TEXT DEFAULT '',
   last_used_at TEXT DEFAULT '',
   created_at   TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS webhooks (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL,
+  name        TEXT DEFAULT '',
   url         TEXT NOT NULL,
-  events      TEXT NOT NULL DEFAULT '*',
-  secret      TEXT NOT NULL DEFAULT '',
-  status      TEXT NOT NULL DEFAULT '启用',
+  events      TEXT DEFAULT '*',
+  secret      TEXT DEFAULT '',
+  status      TEXT DEFAULT '启用',
   last_status TEXT DEFAULT '',
   last_at     TEXT DEFAULT '',
-  fail_count  INTEGER NOT NULL DEFAULT 0,
+  fail_count  INTEGER DEFAULT 0,
   created_at  TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS webhook_deliveries (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  webhook_id   INTEGER NOT NULL DEFAULT 0,
-  event        TEXT NOT NULL,
-  payload      TEXT NOT NULL DEFAULT '{}',
+  webhook_id   INTEGER DEFAULT 0,
+  event        TEXT DEFAULT '',
+  payload      TEXT DEFAULT '',
   signature    TEXT DEFAULT '',
-  status       TEXT NOT NULL DEFAULT '待投递',
-  attempts     INTEGER NOT NULL DEFAULT 0,
-  http_code    INTEGER NOT NULL DEFAULT 0,
+  status       TEXT DEFAULT '待投递',
+  attempts     INTEGER DEFAULT 0,
+  http_code    INTEGER DEFAULT 0,
   error        TEXT DEFAULT '',
   next_at      TEXT DEFAULT '',
   created_at   TEXT DEFAULT '',
   delivered_at TEXT DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS ext_mappings (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  obj_type    TEXT NOT NULL,
-  local_no    TEXT NOT NULL,
-  external_id TEXT NOT NULL,
-  system      TEXT DEFAULT '',
-  created_at  TEXT DEFAULT '',
-  UNIQUE(obj_type, system, external_id)
-);
-CREATE TABLE IF NOT EXISTS change_log (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  obj_type   TEXT NOT NULL,
-  obj_no     TEXT NOT NULL,
-  op         TEXT NOT NULL DEFAULT 'upsert',
-  actor      TEXT DEFAULT '',
-  payload    TEXT DEFAULT '{}',
-  changed_at TEXT DEFAULT ''
-);
 CREATE TABLE IF NOT EXISTS idem_keys (
   key        TEXT PRIMARY KEY,
-  path       TEXT NOT NULL DEFAULT '',
-  response   TEXT NOT NULL DEFAULT '{}',
+  path       TEXT DEFAULT '',
+  response   TEXT DEFAULT '',
   created_at TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS ext_mappings (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  obj_type    TEXT DEFAULT '',
+  local_no    TEXT DEFAULT '',
+  external_id TEXT DEFAULT '',
+  system      TEXT DEFAULT '',
+  created_at  TEXT DEFAULT ''
+);
 
-CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status, owner);
-CREATE INDEX IF NOT EXISTS idx_opp_stage ON opportunities(stage, status);
-CREATE INDEX IF NOT EXISTS idx_act_obj ON activities(obj_type, obj_no);
-CREATE INDEX IF NOT EXISTS idx_plan_contract ON contract_plans(contract_no);
-CREATE INDEX IF NOT EXISTS idx_ticket_status ON tickets(status, priority);
-CREATE INDEX IF NOT EXISTS idx_chg ON change_log(obj_type, id);
-CREATE INDEX IF NOT EXISTS idx_deliv ON webhook_deliveries(status, id);
-CREATE INDEX IF NOT EXISTS idx_map ON ext_mappings(external_id);
+CREATE INDEX IF NOT EXISTS idx_po_supplier   ON purchase_orders(supplier_code);
+CREATE INDEX IF NOT EXISTS idx_po_status     ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS idx_req_status    ON requisitions(status);
+CREATE INDEX IF NOT EXISTS idx_receipt_po    ON receipts(po_no);
+CREATE INDEX IF NOT EXISTS idx_stock_mat     ON stock(material_code);
+CREATE INDEX IF NOT EXISTS idx_moves_mat     ON stock_moves(material_code);
+CREATE INDEX IF NOT EXISTS idx_change_obj    ON change_log(obj_type);
+CREATE INDEX IF NOT EXISTS idx_invoice_po    ON invoices(po_no);
 """
 
 
 def sha256(text):
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return hashlib.sha256(str(text).encode("utf-8")).hexdigest()
 
 
 def conn():
@@ -422,12 +480,14 @@ def one(cn, sql, args=()):
 
 
 def log_action(cn, username, action, detail=""):
-    cn.execute("INSERT INTO op_logs(username, action, detail) VALUES(?,?,?)",
-               (username, action, detail))
+    cn.execute("INSERT INTO op_logs(username, action, detail, created_at) VALUES(?,?,?,?)",
+               (username, action, detail, __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
 
 def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    d = os.path.dirname(DB_PATH)
+    if d:
+        os.makedirs(d, exist_ok=True)
     cn = conn()
     try:
         cn.execute("PRAGMA journal_mode=WAL")
