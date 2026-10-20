@@ -1,78 +1,60 @@
-# 飞鹰CRM系统（Feiying CRM）
+# 飞泉SCM系统（Feiquan SCM）
 
-面向 B2B 项目型销售团队的客户与销售全流程管理系统：**线索 → 客户 → 商机 → 报价 → 合同 → 回款 → 服务** 一条主线跑通，规则口径全部由后端纯函数内核统一计算。
+面向中小制造企业的供应链管理系统：**供应商管理 → 采购执行（请购 / 询价 / 订单 / 收货质检）→ 仓储库存（批次台账 / 调拨 / 盘点）→ 结算付款（三单匹配 / 应付账龄）**，并提供 API Key / Webhook / 增量同步三条开放集成通道。
 
-零第三方依赖：后端 Python 标准库（`http.server` + `sqlite3`），前端原生 HTML/CSS/JS。一条命令启动，单文件离线 DEMO 双击即用。
-
-## 在线访问
-
-- 云端实例：<https://drone-store.app.workbuddy.host/>（账号 `admin` / `admin123`，演示数据已预置）
-- 代码仓库：<https://github.com/dukema81/feiying-crm>
-- 离线单文件 DEMO：`demo/飞鹰CRM系统Demo.html`（双击即用，数据在浏览器内存中，改完刷新即复原）
+零依赖：仅用 Python 标准库（http.server + sqlite3）与原生 HTML/CSS/JS，单机可跑、离线可用。
 
 ## 快速开始
 
 ```bash
-cd backend
-python server.py            # 默认 http://127.0.0.1:8018，首启自动建库并灌演示数据
+python backend/server.py
+# 打开 http://127.0.0.1:8019
+# 管理员：admin / admin123；其余账号密码 fe@2026（详见操作手册）
 ```
 
-浏览器打开 <http://127.0.0.1:8018>，用 `admin` / `admin123` 登录（其余岗位账号见手册：密码统一 `fe@2026`）。
+首次启动自动建库并生成确定性演示数据（种子 20261020）。
 
-离线演示（无需服务与网络）：双击 `demo/飞鹰CRM系统Demo.html`。
+环境变量：`FEIQUAN_PORT`（默认 8019）、`FEIQUAN_DB`（默认 backend/data/feiquan.db）。
 
 ## 功能一览
 
-| 模块 | 关键能力 |
+| 域 | 能力 |
 |---|---|
-| 营销获客 | 线索池、查重（手机/邮箱/公司名相似度）、A/B/C 分级、分配/领取/回收公海、市场活动与 ROI/CPL |
-| 客户经营 | 客户档案、联系人、客户 360（联系人/商机/报价/合同/工单/时间线）、健康分与流失预警 |
-| 销售过程 | 商机看板与列表、阶段状态机（只能前进、赢单须从商务谈判进）、阶段闸口、跟进记录 |
-| 交易与回款 | 报价明细与折扣审批（超阈须批准才能发送）、合同付款条件与签署、回款计划 FIFO 核销、账龄五档 |
-| 客户服务 | 工单 SLA（P1 4h / P2 8h / P3 24h，临期 2h 预警）、受理/解决/关闭评价 |
-| 分析 | 漏斗与相邻转化、业绩排行、来源转化、滚动预测（加权/乐观/悲观）、应收账龄、服务分析 |
-| 系统与集成 | 7 类角色权限与数据范围、8 条可在线调整的业务规则、操作日志、API Key / Webhook / 增量同步 / 外部 ID 映射 |
+| 供应商 | 360 档案、资质预警与准入闸口、四维绩效（交付35/质量35/价格15/协同15）自动定级、健康状态联动 |
+| 采购 | 请购（免审批金额 + 预算校验）、询价比价（≥2 家定标）、订单状态机（草稿→待审批→已下单→部分到货→全部到货→已结算）与五类闸口、收货质检（合格/让步接收/退货） |
+| 库存 | 批次台账、安全库存/补货点/覆盖天数、ABC 分类、缺料一键转请购、调拨、盘点、手工调整、库龄效期 |
+| 结算 | 发票登记即三单匹配（容差 2%）、差异挂起禁付、部分付款、应付账龄五档 |
+| 分析 | 供应链驾驶舱、报表九模块（趋势/类别/绩效/周转/准时率/价格波动/账龄等） |
+| 集成 | API Key（fqk_ 前缀，限流 240/min）、Webhook（23 事件，HMAC-SHA256 签名，退避重试）、增量同步（游标式） |
+
+## 测试
+
+三层自动化测试 169 项全部通过（单元 85 / 接口 71 / 端到端 UI 13）：
+
+```bash
+python scripts/run_tests.py      # 一键门禁
+python tools/smoke_demo.py       # 离线 DEMO 冒烟
+```
+
+## 文档
+
+- `docs/飞泉SCM系统建设方案.md` / `.docx` — 完整设计方案
+- `docs/API.md` — 82 条 REST 接口契约（对接方必读）
+- `docs/飞泉SCM系统-测试报告.md` — 三层测试与缺陷台账
+- `docs/飞泉SCM系统-项目说明与操作手册.md` — 逐页操作说明
+
+离线演示：`demo/飞泉SCM系统Demo.html` 双击即可在浏览器体验全部写操作（内存计算）。
 
 ## 目录结构
 
 ```
-backend/    crm.py 业务内核（纯函数）｜db.py 29 表 DDL｜seed.py 确定性演示数据｜server.py 80 条路由
-frontend/   14 个页面：app.js 框架 + sales/deal/svc/intg 四组业务页
-tests/      单元 53 项｜接口 59 项｜端到端 14 项（Playwright）
-tools/      DEMO 构建、文档构建、知识库上传、GitHub 推送、冒烟脚本
-deploy/     部署包构建
-docs/       建设方案、接口契约、测试报告、操作手册（md + docx）
-demo/       离线单文件演示
-scripts/    一键测试门禁
+backend/   scm.py 业务内核（纯函数）· db.py 34表 · seed.py 演示数据 · server.py 82条路由
+frontend/  app/mdm/buy/stock/fin/intg.js + style.css（14 页，零依赖）
+tests/     test_unit_core / test_api / test_e2e_ui（Playwright）
+tools/     构建 DEMO / 文档 / 测试冒烟 / 知识库上传 / GitHub 推送
+deploy/    部署打包脚本
 ```
 
-## 测试与质量门禁
+## 在线演示
 
-```bash
-python scripts/run_tests.py        # 三层 127 项，全绿才允许部署
-python tools/build_demo.py         # 重建离线 DEMO
-python tools/smoke_demo.py         # 离线 DEMO 冒烟（Playwright）
-```
-
-当前状态：**127 / 127 通过，门禁 PASS**（单元 53、接口 60、端到端 14），产物见 `reports/`。
-
-## 对外接口
-
-- 机器可读契约：`GET /api/openapi.json`（OpenAPI 3.0.3）
-- 三条对接通道：REST 拉取（API Key `fyk_...`）、Webhook 推送（HMAC-SHA256 签名 + 退避重试）、增量同步（`/api/sync/changes?since=`）
-- 配套能力：`Idempotency-Key` 幂等、240 次/分钟/Key 限流、外部 ID 映射反查
-- 完整说明见 [`docs/API.md`](docs/API.md)
-
-## 文档
-
-| 文档 | 内容 |
-|---|---|
-| `docs/飞鹰CRM系统建设方案.md` | 背景目标、架构取舍、数据模型、核心流程、规则引擎、权限、集成、实施计划 |
-| `docs/API.md` | 80 条路由契约、鉴权与错误码、Webhook 与增量同步协议、对接建议 |
-| `docs/飞鹰CRM系统-测试报告.md` | 127 项测试结论、覆盖矩阵、17 项缺陷台账、性能观测、遗留风险 |
-| `docs/飞鹰CRM系统-项目说明与操作手册.md` | 启动与账号、14 页逐页操作、常见问题、数据运维 |
-
-## 说明
-
-- 默认单组织单账套；多组织/多币种、CPQ、移动端列为后续演进。
-- 演示数据确定性生成（`SEED=20261020`，日历锚点 2026-10-20），删除 `data/feiying.db*` 后重启即可重置。
+https://drone-store.app.workbuddy.host/
