@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""飞鹰 CRM · pytest 公共夹具：临时库 + 独立服务进程 + HTTP 客户端"""
+"""飞泉 SCM · pytest 公共夹具：临时库 + 独立服务进程 + HTTP 客户端"""
 import json
 import os
 import subprocess
@@ -30,8 +30,8 @@ def _wait_up(base, timeout=40):
 
 
 def _spawn(port):
-    dbp = os.path.join(tempfile.mkdtemp(prefix="fy_crm_"), "test.db")
-    env = dict(os.environ, FEIYING_DB=dbp, FEIYING_PORT=str(port))
+    dbp = os.path.join(tempfile.mkdtemp(prefix="fq_scm_"), "test.db")
+    env = dict(os.environ, FEIQUAN_DB=dbp, FEIQUAN_PORT=str(port))
     proc = subprocess.Popen([sys.executable, os.path.join(BACKEND, "server.py")],
                             env=env, cwd=BACKEND,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
