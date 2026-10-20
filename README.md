@@ -7,6 +7,7 @@
 ## 在线访问
 
 - 云端实例：<https://drone-store.app.workbuddy.host/>（账号 `admin` / `admin123`，演示数据已预置）
+- 代码仓库：<https://github.com/dukema81/feiying-crm>
 - 离线单文件 DEMO：`demo/飞鹰CRM系统Demo.html`（双击即用，数据在浏览器内存中，改完刷新即复原）
 
 ## 快速开始
