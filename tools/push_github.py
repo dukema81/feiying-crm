@@ -15,7 +15,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = sys.argv[1] if len(sys.argv) > 1 else "dukema81/feiying-crm"
 BRANCH = sys.argv[2] if len(sys.argv) > 2 else "main"
-MSG = "feat: 飞鹰CRM V1.0（线索到回款全流程 + 三层集成通道）"
+MSG = "feat: 飞泉SCM V1.0（供应商到付款全流程 + 三单匹配 + 三层集成通道）"
 
 
 def gh(args, data=None):
