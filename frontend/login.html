@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>飞鹰 CRM · 登录</title>
+<title>飞泉 SCM · 登录</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="login-wrap">
   <div class="login-card">
     <div class="login-left">
-      <div class="lg">飞鹰 CRM</div>
-      <div class="sub">线索 · 客户 · 商机 · 报价 · 合同 · 回款 · 服务</div>
+      <div class="lg">飞泉 SCM</div>
+      <div class="sub">供应商 · 请购 · 询价 · 订单 · 收货 · 库存 · 结算 · 集成</div>
       <ul>
-        <li>线索查重与公海回收，客户档案一客一档</li>
-        <li>商机阶段闸口 + 加权漏斗，销售预测可解释</li>
-        <li>报价折扣审批线，合同分期回款与账龄</li>
-        <li>工单 SLA 计时，超时自动预警</li>
+        <li>供应商准入与 360 档案，绩效四维评分自动定级</li>
+        <li>请购 → 询价比价 → 订单 → 收货质检全链路闸口</li>
+        <li>批次库存、安全库存补货点、ABC 与库龄效期分析</li>
+        <li>三单匹配容差校验，付款与应付账龄一屏可查</li>
         <li>开放接口：API Key / Webhook / 增量同步</li>
       </ul>
       <div class="spacer"></div>
-      <div class="sub" style="font-size:11.5px">feiying-crm v1.0.0 · 演示数据为确定性生成</div>
+      <div class="sub" style="font-size:11.5px">feiquan-scm v1.0.0 · 演示数据为确定性生成</div>
     </div>
     <div class="login-right">
       <h2>账号登录</h2>
@@ -37,7 +37,7 @@
       <div class="login-err" id="err"></div>
       <div class="login-demo">
         演示账号：admin / admin123（管理员）<br>
-        zhangwei 销售总监 · liuyang / wangfang 销售 · sunqi 线索 · chenlu 客服 · zhaomin 财务（密码 fe@2026）
+        zhaokun 采购总监 · liyan / zhouhao 采购员 · wangjing 计划员 · sunlei 仓管 · chenqi 质检 · huangli 财务（密码 fe@2026）
       </div>
     </div>
   </div>
@@ -48,7 +48,7 @@
   var p = document.getElementById("p");
   var btn = document.getElementById("btn");
   var err = document.getElementById("err");
-  if (localStorage.getItem("fy_token")) location.href = "./index.html";
+  if (localStorage.getItem("fq_token")) location.href = "./index.html";
 
   function login() {
     err.textContent = "";
@@ -69,13 +69,13 @@
         return;
       }
       var d = x.j.data;
-      localStorage.setItem("fy_token", d.token);
-      localStorage.setItem("fy_user", d.username);
-      localStorage.setItem("fy_name", d.displayName);
-      localStorage.setItem("fy_role", d.role);
-      localStorage.setItem("fy_role_label", d.roleLabel);
+      localStorage.setItem("fq_token", d.token);
+      localStorage.setItem("fq_user", d.username);
+      localStorage.setItem("fq_name", d.displayName);
+      localStorage.setItem("fq_role", d.role);
+      localStorage.setItem("fq_role_label", d.roleLabel);
       // 同时落一份 Cookie：部分反向代理会改写 Authorization 头，Cookie 作为兜底票据
-      document.cookie = "fy_token=" + d.token + "; path=/; max-age=86400; samesite=lax";
+      document.cookie = "fq_token=" + d.token + "; path=/; max-age=86400; samesite=lax";
       location.href = "./index.html";
     }).catch(function () {
       err.textContent = "网络异常，请稍后重试";
