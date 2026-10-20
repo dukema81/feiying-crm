@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""飞鹰CRM系统 · 一键测试门禁：单元 + 接口 + 端到端，产出 junit/XML/JSON 报告与执行摘要。
+"""飞泉SCM系统 · 一键测试门禁：单元 + 接口 + 端到端，产出 junit/XML/JSON 报告与执行摘要。
 
 退出码非 0 即视为质量门禁不通过，阻断部署。
 用法：python scripts/run_tests.py
@@ -54,7 +54,7 @@ def run_suite(name, path):
 
 def main():
     print("=" * 64)
-    print("飞鹰CRM系统 · 质量门禁（三层自动化测试）")
+    print("飞泉SCM系统 · 质量门禁（三层自动化测试）")
     print("=" * 64)
     results = []
     for name, path in SUITES:
@@ -74,7 +74,7 @@ def main():
 
     shots = sorted(os.listdir(os.path.join(REPORTS, "screenshots")))
     summary = {
-        "project": "飞鹰CRM系统 Feiying CRM",
+        "project": "飞泉SCM系统 Feiquan SCM",
         "version": "1.0.0",
         "date": time.strftime("%Y-%m-%d %H:%M:%S"),
         "suites": results,
@@ -86,7 +86,7 @@ def main():
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
     lines = [
-        "# 飞鹰CRM系统 · 测试执行摘要",
+        "# 飞泉SCM系统 · 测试执行摘要",
         "",
         "- 执行时间：%s" % summary["date"],
         "- 版本：%s" % summary["version"],
